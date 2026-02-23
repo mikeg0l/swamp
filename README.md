@@ -128,8 +128,3 @@ swamp --profile appfire-sso --regions us-east-1,eu-west-1 --workers 24
 - The tool reads SSO access tokens from `~/.aws/sso/cache`
 - Access tokens are not printed in command error logs (redacted)
 - Temporary AWS config files are cleaned up on exit
-
-## License
-
-MIT (or your preferred license).
-
