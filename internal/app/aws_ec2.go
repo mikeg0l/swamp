@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 )
 
 func resolveRegions(tmpConfigPath, profile, discoveryRegion, regionsArg string, includeAllRegions bool) ([]string, error) {
@@ -221,7 +223,29 @@ func startSSMSession(tmpConfigPath, profile, region, instanceID string) error {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	waitCh := make(chan error, 1)
+	go func() {
+		waitCh <- cmd.Wait()
+	}()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+
+	for {
+		select {
+		case err := <-waitCh:
+			return err
+		case sig := <-sigCh:
+			if cmd.Process != nil {
+				_ = cmd.Process.Signal(sig)
+			}
+		}
+	}
 }
 
 func runAWSJSON(tmpConfigPath, profile string, args []string) ([]byte, error) {
