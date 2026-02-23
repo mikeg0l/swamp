@@ -19,6 +19,7 @@ func newRootCmd() *cobra.Command {
 		Use:          "swamp",
 		Short:        "Discover EC2 instances across SSO scope and connect via SSM",
 		SilenceUsage: true,
+		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.Profile = strings.TrimSpace(opts.Profile)
 			opts.AccountFilter = strings.TrimSpace(opts.AccountFilter)
