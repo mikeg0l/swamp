@@ -7,7 +7,7 @@ import (
 
 func validateOptions(opts Options) error {
 	if opts.Profile == "" {
-		return errors.New("missing --profile (example: --profile my-sso-profile)")
+		return errors.New("missing --profile/-p (example: --profile my-sso-profile)")
 	}
 	if opts.Workers < 1 {
 		return errors.New("--workers must be at least 1")

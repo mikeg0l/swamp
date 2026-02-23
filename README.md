@@ -27,14 +27,14 @@ This tool discovers accessible AWS accounts, roles, regions, and EC2 instances, 
 ### Option 1: Run directly
 
 ```bash
-swamp --profile YOUR_SSO_PROFILE
+go run ./cmd/swamp -p YOUR_SSO_PROFILE
 ```
 
 ### Option 2: Build a binary
 
 ```bash
 go build -o swamp ./cmd/swamp
-./swamp --profile YOUR_SSO_PROFILE
+./swamp -p YOUR_SSO_PROFILE
 ```
 
 ## Add to PATH
@@ -50,26 +50,26 @@ swamp --help
 ## Usage
 
 ```bash
-swamp --profile YOUR_SSO_PROFILE [flags]
+swamp -p YOUR_SSO_PROFILE [flags]
 ```
 
 ### Main Flags
 
-- `--profile string` AWS SSO profile name (required)
-- `--workers int` Concurrent workers for discovery (default: `12`)
-- `--interactive-scope` Pick account, role, and region with `fzf` before instance list (default: `true`; disable with `--interactive-scope=false`)
-- `--account string` Account ID exact match, or account-name substring
-- `--role string` Exact role name filter
-- `--regions string` Comma-separated regions (e.g. `us-east-1,eu-west-1`)
-- `--all-regions` Include all regions (including disabled ones)
-- `--include-stopped` Include non-running instances in EC2 selection
+- `-p, --profile string` AWS SSO profile name (required)
+- `-w, --workers int` Concurrent workers for discovery (default: `12`)
+- `-i, --interactive-scope` Pick account, role, and region with `fzf` before instance list (default: `true`; disable with `--interactive-scope=false`)
+- `-a, --account string` Account ID exact match, or account-name substring
+- `-r, --role string` Exact role name filter
+- `-R, --regions string` Comma-separated regions (e.g. `us-east-1,eu-west-1`)
+- `-A, --all-regions` Include all regions (including disabled ones)
+- `-s, --include-stopped` Include non-running instances in EC2 selection
 
 ## Typical Workflows
 
 ### 1) Fully interactive scope narrowing
 
 ```bash
-swamp --profile appfire-sso
+swamp -p appfire-sso
 ```
 
 Flow:
@@ -82,13 +82,13 @@ Flow:
 ### 2) Fast filtered run (account + role)
 
 ```bash
-swamp --profile appfire-sso --account 123456789012 --role AdministratorAccess
+swamp -p appfire-sso -a 123456789012 -r AdministratorAccess
 ```
 
 ### 3) Restrict region set for speed
 
 ```bash
-swamp --profile appfire-sso --regions us-east-1,eu-west-1 --workers 24
+swamp -p appfire-sso -R us-east-1,eu-west-1 -w 24
 ```
 
 ## Performance Notes
