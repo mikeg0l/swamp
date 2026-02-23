@@ -1,0 +1,135 @@
+# swamp
+
+Interactive AWS SSM connection helper powered by AWS CLI (SSO) and `fzf`.
+
+This tool discovers accessible AWS accounts, roles, regions, and EC2 instances, then starts an SSM session to the instance you choose.
+
+## Features
+
+- Uses AWS SSO profile as bootstrap (`aws sso login` supported)
+- Scans accessible accounts and viable roles
+- Supports both:
+  - interactive narrowing by default (account -> role -> region -> instance)
+  - fast filtering (`--account`, `--role`, `--regions`)
+- Supports concurrent discovery (`--workers`)
+- Starts shell session with `aws ssm start-session`
+- Redacts SSO access token in error output
+
+## Requirements
+
+- Go 1.21+ (or any modern Go with modules support)
+- AWS CLI v2 configured for SSO
+- `fzf` installed and available in `PATH`
+- AWS Session Manager Plugin installed (required by `aws ssm start-session`)
+
+## Install
+
+### Option 1: Run directly
+
+```bash
+swamp --profile YOUR_SSO_PROFILE
+```
+
+### Option 2: Build a binary
+
+```bash
+go build -o swamp ./cmd/swamp
+./swamp --profile YOUR_SSO_PROFILE
+```
+
+## Add to PATH
+
+After building, place `swamp` in a directory that is on your `PATH`.
+
+```bash
+go build -o swamp ./cmd/swamp
+sudo ln -sf "$(pwd)/swamp" /usr/local/bin/swamp
+swamp --help
+```
+
+## Usage
+
+```bash
+swamp --profile YOUR_SSO_PROFILE [flags]
+```
+
+### Main Flags
+
+- `--profile string` AWS SSO profile name (required)
+- `--workers int` Concurrent workers for discovery (default: `12`)
+- `--interactive-scope` Pick account, role, and region with `fzf` before instance list (default: `true`; disable with `--interactive-scope=false`)
+- `--account string` Account ID exact match, or account-name substring
+- `--role string` Exact role name filter
+- `--regions string` Comma-separated regions (e.g. `us-east-1,eu-west-1`)
+- `--all-regions` Include all regions (including disabled ones)
+- `--include-stopped` Include non-running instances in EC2 selection
+
+## Typical Workflows
+
+### 1) Fully interactive scope narrowing
+
+```bash
+swamp --profile appfire-sso
+```
+
+Flow:
+1. select account
+2. select role
+3. select region
+4. select instance
+5. SSM session starts
+
+### 2) Fast filtered run (account + role)
+
+```bash
+swamp --profile appfire-sso --account 123456789012 --role AdministratorAccess
+```
+
+### 3) Restrict region set for speed
+
+```bash
+swamp --profile appfire-sso --regions us-east-1,eu-west-1 --workers 24
+```
+
+## Performance Notes
+
+- Lower scope first for speed: `--account`, `--role`, `--regions`
+- Start with `--workers 12`; raise to `16-32` if needed
+- Very high worker counts can trigger AWS throttling and reduce real performance
+
+## Troubleshooting
+
+### "Unable to locate credentials"
+
+- Ensure profile is SSO-configured in `~/.aws/config`
+- Run: `aws sso login --profile YOUR_SSO_PROFILE`
+- Verify profile works:  
+  `aws --profile YOUR_SSO_PROFILE sts get-caller-identity`
+
+### "You must specify a region"
+
+- Ensure your SSO session has an `sso_region`
+- Or pass explicit regions with `--regions`
+
+### No instances found
+
+- Try `--include-stopped`
+- Verify selected role has EC2 + SSM permissions
+- Confirm instances are SSM-managed and online
+
+### `start-session` fails locally
+
+- Install or repair Session Manager Plugin
+- Verify with:  
+  `aws ssm start-session help`
+
+## Security Notes
+
+- The tool reads SSO access tokens from `~/.aws/sso/cache`
+- Access tokens are not printed in command error logs (redacted)
+- Temporary AWS config files are cleaned up on exit
+
+## License
+
+MIT (or your preferred license).
+
