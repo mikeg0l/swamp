@@ -37,6 +37,26 @@ go build -o swamp ./cmd/swamp
 ./swamp -p YOUR_SSO_PROFILE
 ```
 
+### Option 3: Homebrew tap
+
+```bash
+brew tap mikeg0l/tap
+brew install swamp
+```
+
+Or:
+
+```bash
+brew install mikeg0l/tap/swamp
+```
+
+Upgrade:
+
+```bash
+brew update
+brew upgrade swamp
+```
+
 ## Add to PATH
 
 After building, place `swamp` in a directory that is on your `PATH`.
@@ -167,3 +187,10 @@ swamp -p appfire-sso --cache-clear
 - The tool reads SSO access tokens from `~/.aws/sso/cache`
 - Access tokens are not printed in command error logs (redacted)
 - Temporary AWS config files are cleaned up on exit
+
+## Homebrew Release Automation (Maintainers)
+
+- Tag releases with semantic version tags (for example `v0.1.0`)
+- Push tags to trigger `.github/workflows/release.yml`
+- Set repository secret `TAP_GITHUB_TOKEN` in `mikeg0l/swamp` with write access to `mikeg0l/homebrew-tap`
+- Workflow publishes darwin binaries and updates `Formula/swamp.rb` in the tap

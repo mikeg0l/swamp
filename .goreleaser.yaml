@@ -1,0 +1,64 @@
+project_name: swamp
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: swamp
+    binary: swamp
+    main: ./cmd/swamp
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - id: swamp-archive
+    ids:
+      - swamp
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+release:
+  github:
+    owner: mikeg0l
+    name: swamp
+  draft: false
+  prerelease: auto
+
+brews:
+  - name: swamp
+    repository:
+      owner: mikeg0l
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: https://github.com/mikeg0l/swamp
+    description: Interactive AWS SSM connection helper powered by AWS CLI (SSO) and fzf
+    license: MIT
+    install: |
+      bin.install "swamp"
+    test: |
+      system "#{bin}/swamp", "--help"
+    dependencies:
+      - name: awscli
+      - name: fzf
+    caveats: |
+      swamp requires AWS Session Manager Plugin to start SSM sessions.
+      Install it from AWS docs if it is not already available in your environment.
+    commit_author:
+      name: swamp-ci
+      email: actions@github.com
+    commit_msg_template: "chore: update swamp formula to {{ .Tag }}"

@@ -13,12 +13,21 @@ func Execute() error {
 	return newRootCmd().Execute()
 }
 
+func ExecuteWithVersion(version string) error {
+	return newRootCmdWithVersion(version).Execute()
+}
+
 func newRootCmd() *cobra.Command {
+	return newRootCmdWithVersion("")
+}
+
+func newRootCmdWithVersion(version string) *cobra.Command {
 	var opts app.Options
 
 	cmd := &cobra.Command{
 		Use:           "swamp",
 		Short:         "Discover EC2 instances across SSO scope and connect via SSM",
+		Version:       version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
