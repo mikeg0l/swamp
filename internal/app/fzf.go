@@ -9,6 +9,15 @@ import (
 	"strings"
 )
 
+const fzfBackOption = "< Back"
+
+func withBackOption(lines []string) []string {
+	if len(lines) == 0 {
+		return lines
+	}
+	return append([]string{fzfBackOption}, lines...)
+}
+
 func selectAccountWithFZF(accounts []ssoAccountsResponse) (*ssoAccountsResponse, error) {
 	lookup := make(map[string]ssoAccountsResponse, len(accounts))
 	lines := make([]string, 0, len(accounts))
@@ -38,7 +47,7 @@ func selectAccountWithFZF(accounts []ssoAccountsResponse) (*ssoAccountsResponse,
 	return &chosen, nil
 }
 
-func selectRoleTargetWithFZF(targets []roleTarget) (*roleTarget, error) {
+func selectRoleTargetWithFZF(targets []roleTarget) (*roleTarget, bool, error) {
 	lookup := make(map[string]roleTarget, len(targets))
 	lines := make([]string, 0, len(targets))
 	for _, t := range targets {
@@ -47,23 +56,27 @@ func selectRoleTargetWithFZF(targets []roleTarget) (*roleTarget, error) {
 		lookup[line] = t
 	}
 	if len(lines) == 0 {
-		return nil, nil
+		return nil, false, nil
 	}
+	lines = withBackOption(lines)
 	selected, ok, err := pickLineWithFZF(lines, "Select role > ")
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if !ok {
-		return nil, nil
+		return nil, false, nil
+	}
+	if selected == fzfBackOption {
+		return nil, true, nil
 	}
 	chosen, found := lookup[selected]
 	if !found {
-		return nil, fmt.Errorf("selected role not found")
+		return nil, false, fmt.Errorf("selected role not found")
 	}
-	return &chosen, nil
+	return &chosen, false, nil
 }
 
-func selectRegionWithFZF(regions []string) (string, error) {
+func selectRegionWithFZF(regions []string) (string, bool, error) {
 	lookup := make(map[string]string, len(regions))
 	lines := make([]string, 0, len(regions))
 	for _, region := range regions {
@@ -71,19 +84,26 @@ func selectRegionWithFZF(regions []string) (string, error) {
 		lines = append(lines, line)
 		lookup[line] = region
 	}
+	if len(lines) == 0 {
+		return "", false, nil
+	}
+	lines = withBackOption(lines)
 
 	selected, ok, err := pickLineWithFZF(lines, "Select region > ")
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	if !ok {
-		return "", nil
+		return "", false, nil
+	}
+	if selected == fzfBackOption {
+		return "", true, nil
 	}
 	region, found := lookup[selected]
 	if !found {
-		return "", fmt.Errorf("selected region not found")
+		return "", false, fmt.Errorf("selected region not found")
 	}
-	return region, nil
+	return region, false, nil
 }
 
 func pickLineWithFZF(lines []string, prompt string) (string, bool, error) {
@@ -114,9 +134,11 @@ func pickLineWithFZF(lines []string, prompt string) (string, bool, error) {
 	return selected, true, nil
 }
 
-func pickWithFZF(candidates []instanceCandidate) (*instanceCandidate, error) {
+func pickWithFZF(candidates []instanceCandidate) (*instanceCandidate, bool, error) {
 	var in bytes.Buffer
 	lookup := make(map[string]instanceCandidate, len(candidates))
+	in.WriteString(fzfBackOption)
+	in.WriteString("\n")
 	for _, c := range candidates {
 		in.WriteString(c.DisplayLine)
 		in.WriteString("\n")
@@ -133,18 +155,21 @@ func pickWithFZF(candidates []instanceCandidate) (*instanceCandidate, error) {
 	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) && exitErr.ExitCode() == 130 {
-			return nil, nil
+			return nil, false, nil
 		}
-		return nil, err
+		return nil, false, err
 	}
 
 	selectedLine := strings.TrimSpace(out.String())
 	if selectedLine == "" {
-		return nil, nil
+		return nil, false, nil
+	}
+	if selectedLine == fzfBackOption {
+		return nil, true, nil
 	}
 	selected, ok := lookup[selectedLine]
 	if !ok {
-		return nil, fmt.Errorf("selected value not found in lookup")
+		return nil, false, fmt.Errorf("selected value not found in lookup")
 	}
-	return &selected, nil
+	return &selected, false, nil
 }

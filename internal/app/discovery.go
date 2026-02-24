@@ -29,18 +29,6 @@ func discoverAccounts(opts Options, ssoRegion, accessToken string) ([]ssoAccount
 			return nil, fmt.Errorf("no accounts matched --account=%q", opts.AccountFilter)
 		}
 	}
-
-	if opts.InteractiveScope {
-		selectedAccount, err := selectAccountWithFZF(accounts)
-		if err != nil {
-			return nil, fmt.Errorf("account selection failed: %w", err)
-		}
-		if selectedAccount == nil {
-			fmt.Println("No account selected.")
-			return nil, nil
-		}
-		accounts = []ssoAccountsResponse{*selectedAccount}
-	}
 	return accounts, nil
 }
 
@@ -63,18 +51,6 @@ func discoverRoleTargets(opts Options, accounts []ssoAccountsResponse, ssoRegion
 		if len(targets) == 0 {
 			return nil, fmt.Errorf("no roles matched --role=%q", opts.RoleFilter)
 		}
-	}
-
-	if opts.InteractiveScope {
-		selectedTarget, err := selectRoleTargetWithFZF(targets)
-		if err != nil {
-			return nil, fmt.Errorf("role selection failed: %w", err)
-		}
-		if selectedTarget == nil {
-			fmt.Println("No role selected.")
-			return nil, nil
-		}
-		targets = []roleTarget{*selectedTarget}
 	}
 	return targets, nil
 }
@@ -103,18 +79,6 @@ func discoverRegions(opts Options, cfg profileConfig, targets []roleTarget, tmpC
 	}
 	if len(regions) == 0 {
 		return nil, errors.New("no regions to scan")
-	}
-
-	if opts.InteractiveScope {
-		selectedRegion, err := selectRegionWithFZF(regions)
-		if err != nil {
-			return nil, fmt.Errorf("region selection failed: %w", err)
-		}
-		if selectedRegion == "" {
-			fmt.Println("No region selected.")
-			return nil, nil
-		}
-		regions = []string{selectedRegion}
 	}
 	return regions, nil
 }

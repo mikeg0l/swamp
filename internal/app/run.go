@@ -1,7 +1,6 @@
 package app
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -44,51 +43,111 @@ func Run(opts Options) error {
 	if len(accounts) == 0 {
 		return nil
 	}
+	return runInteractiveScope(opts, cfg, ssoRegion, accessToken, accounts)
+}
 
-	targets, err := discoverRoleTargets(opts, accounts, ssoRegion, accessToken)
-	if err != nil {
-		return err
-	}
-	if len(targets) == 0 {
-		return nil
-	}
-	fmt.Printf("Discovered %d account/role combinations\n", len(targets))
+func runInteractiveScope(opts Options, cfg profileConfig, ssoRegion, accessToken string, accounts []ssoAccountsResponse) error {
+	for {
+		selectedAccount, err := selectAccountWithFZF(accounts)
+		if err != nil {
+			return fmt.Errorf("account selection failed: %w", err)
+		}
+		if selectedAccount == nil {
+			fmt.Println("No account selected.")
+			return nil
+		}
 
-	tmpConfigPath, profileNames, err := buildTemporaryAWSConfig(cfg, targets)
-	if err != nil {
-		return fmt.Errorf("failed to build temporary AWS config: %w", err)
-	}
-	defer os.Remove(tmpConfigPath)
+		targets, err := discoverRoleTargets(opts, []ssoAccountsResponse{*selectedAccount}, ssoRegion, accessToken)
+		if err != nil {
+			return err
+		}
+		if len(targets) == 0 {
+			continue
+		}
 
-	regions, err := discoverRegions(opts, cfg, targets, tmpConfigPath, profileNames, ssoRegion)
-	if err != nil {
-		return err
-	}
-	if len(regions) == 0 {
-		return nil
-	}
-	fmt.Printf("Scanning %d regions\n", len(regions))
+		for {
+			selectedTarget, backToAccounts, err := selectRoleTargetWithFZF(targets)
+			if err != nil {
+				return fmt.Errorf("role selection failed: %w", err)
+			}
+			if backToAccounts {
+				break
+			}
+			if selectedTarget == nil {
+				fmt.Println("No role selected.")
+				return nil
+			}
 
-	candidates := scanAllInstances(opts, tmpConfigPath, targets, profileNames, regions, opts.Workers, !opts.IncludeStopped)
-	if len(candidates) == 0 {
-		return errors.New("no EC2 instances found for the discovered account/role/region scope")
-	}
-	sort.Slice(candidates, func(i, j int) bool {
-		return candidates[i].DisplayLine < candidates[j].DisplayLine
-	})
+			selectedTargets := []roleTarget{*selectedTarget}
+			tmpConfigPath, profileNames, err := buildTemporaryAWSConfig(cfg, selectedTargets)
+			if err != nil {
+				return fmt.Errorf("failed to build temporary AWS config: %w", err)
+			}
 
-	selected, err := pickWithFZF(candidates)
-	if err != nil {
-		return fmt.Errorf("selection failed: %w", err)
-	}
-	if selected == nil {
-		fmt.Println("No instance selected.")
-		return nil
-	}
+			regions, err := discoverRegions(opts, cfg, selectedTargets, tmpConfigPath, profileNames, ssoRegion)
+			if err != nil {
+				_ = os.Remove(tmpConfigPath)
+				return err
+			}
+			if len(regions) == 0 {
+				_ = os.Remove(tmpConfigPath)
+				continue
+			}
+			fmt.Printf("Scanning %d regions\n", len(regions))
 
-	fmt.Printf("Starting SSM session to %s in %s (profile %s)\n", selected.InstanceID, selected.Region, selected.ProfileName)
-	if err := startSSMSession(tmpConfigPath, selected.ProfileName, selected.Region, selected.InstanceID); err != nil {
-		return fmt.Errorf("ssm session failed: %w", err)
+			backToRoles := false
+			for {
+				selectedRegion, back, err := selectRegionWithFZF(regions)
+				if err != nil {
+					_ = os.Remove(tmpConfigPath)
+					return fmt.Errorf("region selection failed: %w", err)
+				}
+				if back {
+					backToRoles = true
+					break
+				}
+				if selectedRegion == "" {
+					fmt.Println("No region selected.")
+					_ = os.Remove(tmpConfigPath)
+					return nil
+				}
+
+				candidates := scanAllInstances(opts, tmpConfigPath, selectedTargets, profileNames, []string{selectedRegion}, opts.Workers, !opts.IncludeStopped)
+				if len(candidates) == 0 {
+					fmt.Printf("No EC2 instances found in %s.\n", selectedRegion)
+					continue
+				}
+				sort.Slice(candidates, func(i, j int) bool {
+					return candidates[i].DisplayLine < candidates[j].DisplayLine
+				})
+
+				selected, backToRegions, err := pickWithFZF(candidates)
+				if err != nil {
+					_ = os.Remove(tmpConfigPath)
+					return fmt.Errorf("selection failed: %w", err)
+				}
+				if backToRegions {
+					continue
+				}
+				if selected == nil {
+					fmt.Println("No instance selected.")
+					_ = os.Remove(tmpConfigPath)
+					return nil
+				}
+
+				fmt.Printf("Starting SSM session to %s in %s (profile %s)\n", selected.InstanceID, selected.Region, selected.ProfileName)
+				if err := startSSMSession(tmpConfigPath, selected.ProfileName, selected.Region, selected.InstanceID); err != nil {
+					_ = os.Remove(tmpConfigPath)
+					return fmt.Errorf("ssm session failed: %w", err)
+				}
+				_ = os.Remove(tmpConfigPath)
+				return nil
+			}
+
+			_ = os.Remove(tmpConfigPath)
+			if backToRoles {
+				continue
+			}
+		}
 	}
-	return nil
 }

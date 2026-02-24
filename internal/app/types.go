@@ -79,7 +79,6 @@ type Options struct {
 	RoleFilter        string
 	RegionsArg        string
 	AllRegions        bool
-	InteractiveScope  bool
 	IncludeStopped    bool
 	CacheEnabled      bool
 	CacheDir          string

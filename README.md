@@ -8,9 +8,8 @@ This tool discovers accessible AWS accounts, roles, regions, and EC2 instances, 
 
 - Uses AWS SSO profile as bootstrap (`aws sso login` supported)
 - Scans accessible accounts and viable roles
-- Supports both:
-  - interactive narrowing by default (account -> role -> region -> instance)
-  - fast filtering (`--account`, `--role`, `--regions`)
+- Interactive narrowing (account -> role -> region -> instance)
+- Fast pre-filtering before pickers (`--account`, `--role`, `--regions`)
 - Supports concurrent discovery (`--workers`)
 - Starts shell session with `aws ssm start-session`
 - Redacts SSO access token in error output
@@ -77,7 +76,6 @@ swamp -p YOUR_SSO_PROFILE [flags]
 
 - `-p, --profile string` AWS SSO profile name (required)
 - `-w, --workers int` Concurrent workers for discovery (default: `12`)
-- `-i, --interactive-scope` Pick account, role, and region with `fzf` before instance list (default: `true`; disable with `--interactive-scope=false`)
 - `-a, --account string` Account ID exact match, or account-name substring
 - `-r, --role string` Exact role name filter
 - `-R, --regions string` Comma-separated regions (e.g. `us-east-1,eu-west-1`)
@@ -107,11 +105,15 @@ Flow:
 4. select instance
 5. SSM session starts
 
+At role/region/instance steps you can pick `< Back` to move up one level.
+
 ### 2) Fast filtered run (account + role)
 
 ```bash
 swamp -p my-team-sso -a 123456789012 -r AdministratorAccess
 ```
+
+This still uses interactive pickers, but limits choices to the filtered scope.
 
 ### 3) Restrict region set for speed
 

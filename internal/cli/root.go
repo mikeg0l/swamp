@@ -45,7 +45,6 @@ func newRootCmdWithVersion(version string) *cobra.Command {
 	cmd.Flags().StringVarP(&opts.RoleFilter, "role", "r", "", "Filter to a specific role name")
 	cmd.Flags().StringVarP(&opts.RegionsArg, "regions", "R", "", "Comma-separated regions to scan (default: discover all enabled regions)")
 	cmd.Flags().BoolVarP(&opts.AllRegions, "all-regions", "A", false, "Include all regions, even those not enabled in the account")
-	cmd.Flags().BoolVarP(&opts.InteractiveScope, "interactive-scope", "i", true, "Interactively pick account, role, and region with fzf before listing instances (default: true; disable with --interactive-scope=false)")
 	cmd.Flags().BoolVarP(&opts.IncludeStopped, "include-stopped", "s", false, "Include non-running instances in selection")
 	cmd.Flags().BoolVar(&opts.CacheEnabled, "cache", true, "Enable local discovery cache")
 	cmd.Flags().StringVar(&opts.CacheDir, "cache-dir", app.DefaultCacheDirForCLI(), "Directory for local cache files")
