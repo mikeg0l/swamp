@@ -13,6 +13,8 @@ This tool discovers accessible AWS accounts, roles, regions, and EC2 instances, 
 - Supports concurrent discovery (`--workers`)
 - Starts shell session with `aws ssm start-session`
 - Redacts SSO access token in error output
+- Remembers last successful scope/instance for faster reconnects
+- Supports user defaults via local YAML config file
 
 ## Requirements
 
@@ -81,6 +83,12 @@ swamp -p YOUR_SSO_PROFILE [flags]
 - `-R, --regions string` Comma-separated regions (e.g. `us-east-1,eu-west-1`)
 - `-A, --all-regions` Include all regions (including disabled ones)
 - `-s, --include-stopped` Include non-running instances in EC2 selection
+- `-u, --resume` Reuse the last successful account/role/region scope
+- `-l, --last` Reconnect directly to the last successful instance
+- `--no-auto-select` Disable auto-selection when only one choice exists
+- `-c, --config string` Config file path (default: `~/.config/swamp/config.yaml`)
+- `--write-config-example` Write an example config file and exit
+- `--print-effective-config` Print effective runtime values and exit
 - `--cache` Enable/disable local discovery cache (default: `true`)
 - `--cache-dir string` Cache directory (default: OS user cache dir + `/swamp`)
 - `--cache-mode string` Cache behavior: `balanced`, `fresh`, or `speed` (default: `balanced`)
@@ -121,6 +129,16 @@ This still uses interactive pickers, but limits choices to the filtered scope.
 swamp -p my-team-sso -R us-east-1,eu-west-1 -w 24
 ```
 
+### 4) Reconnect quickly to recent target
+
+```bash
+# reconnect directly to last successful instance
+swamp -p my-team-sso -l
+
+# reuse last account/role/region scope
+swamp -p my-team-sso -u
+```
+
 ## Performance Notes
 
 - Lower scope first for speed: `--account`, `--role`, `--regions`
@@ -158,6 +176,56 @@ swamp -p my-team-sso --cache-mode speed --cache-ttl-instances 5m
 swamp -p my-team-sso --cache-clear
 ```
 
+## User Config File
+
+Default path: `~/.config/swamp/config.yaml`
+
+If the config file does not exist, Swamp creates it automatically on first run with default values.
+
+You can create a starter file:
+
+```bash
+swamp --write-config-example
+```
+
+Example:
+
+```yaml
+profile: my-sso-profile
+preferred_role: AdministratorAccess
+
+cache:
+  enabled: true
+  dir: /Users/me/Library/Caches/swamp
+  mode: balanced
+  ttl_accounts: 6h
+  ttl_roles: 6h
+  ttl_regions: 24h
+  ttl_instances: 60s
+
+discovery:
+  workers: 12
+  regions: []
+  all_regions: false
+  include_stopped: false
+
+ux:
+  auto_select_single: true
+  resume_by_default: false
+```
+
+Precedence order:
+
+1. CLI flags
+2. Config file
+3. Built-in defaults
+
+Notes:
+
+- `preferred_role` is exact match only
+- if preferred role is unavailable in selected scope, Swamp continues with all discovered roles
+- unknown config keys are ignored with a warning
+
 ## Troubleshooting
 
 ### "Unable to locate credentials"
@@ -177,6 +245,12 @@ swamp -p my-team-sso --cache-clear
 - Try `--include-stopped`
 - Verify selected role has EC2 + SSM permissions
 - Confirm instances are SSM-managed and online
+
+### Why isn’t my config applied?
+
+- A CLI flag overrides config values for the same setting
+- Use `swamp --print-effective-config` to inspect resolved values
+- Ensure your config path is correct or pass it explicitly with `--config`
 
 ### `start-session` fails locally
 

@@ -73,20 +73,29 @@ type scanResult struct {
 }
 
 type Options struct {
-	Profile           string
-	Workers           int
-	AccountFilter     string
-	RoleFilter        string
-	RegionsArg        string
-	AllRegions        bool
-	IncludeStopped    bool
-	CacheEnabled      bool
-	CacheDir          string
-	CacheTTLAccounts  time.Duration
-	CacheTTLRoles     time.Duration
-	CacheTTLRegions   time.Duration
-	CacheTTLInstances time.Duration
-	CacheMode         string
-	CacheClear        bool
-	cacheStore        *cacheStore
+	Profile              string
+	Workers              int
+	AccountFilter        string
+	RoleFilter           string
+	RoleFromPreferred    bool
+	RegionsArg           string
+	AllRegions           bool
+	IncludeStopped       bool
+	Resume               bool
+	Last                 bool
+	NoAutoSelect         bool
+	ConfigPath           string
+	WriteConfigExample   bool
+	PrintEffectiveConfig bool
+	FlagSet              map[string]bool
+	CacheEnabled         bool
+	CacheDir             string
+	CacheTTLAccounts     time.Duration
+	CacheTTLRoles        time.Duration
+	CacheTTLRegions      time.Duration
+	CacheTTLInstances    time.Duration
+	CacheMode            string
+	CacheClear           bool
+	ValueSource          map[string]string
+	cacheStore           *cacheStore
 }

@@ -47,10 +47,15 @@ func discoverRoleTargets(opts Options, accounts []ssoAccountsResponse, ssoRegion
 	}
 
 	if opts.RoleFilter != "" {
-		targets = filterRoleTargets(targets, opts.RoleFilter)
-		if len(targets) == 0 {
+		filtered := filterRoleTargets(targets, opts.RoleFilter)
+		if len(filtered) == 0 {
+			if opts.RoleFromPreferred {
+				fmt.Printf("Preferred role %q was not found in this scope; continuing with all roles.\n", opts.RoleFilter)
+				return targets, nil
+			}
 			return nil, fmt.Errorf("no roles matched --role=%q", opts.RoleFilter)
 		}
+		targets = filtered
 	}
 	return targets, nil
 }

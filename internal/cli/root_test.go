@@ -16,3 +16,15 @@ func TestRootCommandCacheDefaultTTLs(t *testing.T) {
 		t.Fatalf("expected roles default 6h0m0s, got %s", roles.DefValue)
 	}
 }
+
+func TestRootCommandNewShortFlags(t *testing.T) {
+	cmd := newRootCmd()
+	last := cmd.Flags().ShorthandLookup("l")
+	resume := cmd.Flags().ShorthandLookup("u")
+	if last == nil || last.Name != "last" {
+		t.Fatalf("expected -l shorthand for --last")
+	}
+	if resume == nil || resume.Name != "resume" {
+		t.Fatalf("expected -u shorthand for --resume")
+	}
+}

@@ -115,7 +115,7 @@ func TestRunInteractiveScopeInstanceBackReturnsToRegionPicker(t *testing.T) {
 		return nil
 	}
 
-	err := runInteractiveScope(Options{Workers: 1}, profileConfig{}, "us-east-1", "token", []ssoAccountsResponse{account})
+	err := runInteractiveScope(Options{Workers: 1, NoAutoSelect: true}, profileConfig{}, "us-east-1", "token", []ssoAccountsResponse{account})
 	if err != nil {
 		t.Fatalf("runInteractiveScope returned error: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestRunInteractiveScopeRegionBackReturnsToRolePicker(t *testing.T) {
 		return nil
 	}
 
-	err := runInteractiveScope(Options{Workers: 1}, profileConfig{}, "us-east-1", "token", []ssoAccountsResponse{account})
+	err := runInteractiveScope(Options{Workers: 1, NoAutoSelect: true}, profileConfig{}, "us-east-1", "token", []ssoAccountsResponse{account})
 	if err != nil {
 		t.Fatalf("runInteractiveScope returned error: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestRunInteractiveScopeSuccessfulSelectionUsesMockConfigPath(t *testing.T) 
 		return nil
 	}
 
-	err := runInteractiveScope(Options{Workers: 1}, profileConfig{}, "us-east-1", "token", []ssoAccountsResponse{account})
+	err := runInteractiveScope(Options{Workers: 1, NoAutoSelect: true}, profileConfig{}, "us-east-1", "token", []ssoAccountsResponse{account})
 	if err != nil {
 		t.Fatalf("runInteractiveScope returned error: %v", err)
 	}
@@ -304,7 +304,7 @@ func TestRunInteractiveScopeNoInstanceSelectedCleansUpAndExits(t *testing.T) {
 		return nil
 	}
 
-	err := runInteractiveScope(Options{Workers: 1}, profileConfig{}, "us-east-1", "token", []ssoAccountsResponse{account})
+	err := runInteractiveScope(Options{Workers: 1, NoAutoSelect: true}, profileConfig{}, "us-east-1", "token", []ssoAccountsResponse{account})
 	if err != nil {
 		t.Fatalf("runInteractiveScope returned error: %v", err)
 	}
@@ -367,7 +367,7 @@ func TestRunInteractiveScopeNoInstancesLoopsToRegionSelection(t *testing.T) {
 		return nil
 	}
 
-	err := runInteractiveScope(Options{Workers: 1}, profileConfig{}, "us-east-1", "token", []ssoAccountsResponse{account})
+	err := runInteractiveScope(Options{Workers: 1, NoAutoSelect: true}, profileConfig{}, "us-east-1", "token", []ssoAccountsResponse{account})
 	if err != nil {
 		t.Fatalf("runInteractiveScope returned error: %v", err)
 	}
