@@ -97,7 +97,7 @@ swamp -p YOUR_SSO_PROFILE [flags]
 ### 1) Fully interactive scope narrowing
 
 ```bash
-swamp -p appfire-sso
+swamp -p my-team-sso
 ```
 
 Flow:
@@ -110,13 +110,13 @@ Flow:
 ### 2) Fast filtered run (account + role)
 
 ```bash
-swamp -p appfire-sso -a 123456789012 -r AdministratorAccess
+swamp -p my-team-sso -a 123456789012 -r AdministratorAccess
 ```
 
 ### 3) Restrict region set for speed
 
 ```bash
-swamp -p appfire-sso -R us-east-1,eu-west-1 -w 24
+swamp -p my-team-sso -R us-east-1,eu-west-1 -w 24
 ```
 
 ## Performance Notes
@@ -144,16 +144,16 @@ Examples:
 
 ```bash
 # default balanced mode
-swamp -p appfire-sso
+swamp -p my-team-sso
 
 # force fresh discovery this run
-swamp -p appfire-sso --cache-mode fresh
+swamp -p my-team-sso --cache-mode fresh
 
 # speed-first with longer instance TTL
-swamp -p appfire-sso --cache-mode speed --cache-ttl-instances 5m
+swamp -p my-team-sso --cache-mode speed --cache-ttl-instances 5m
 
 # clear cache before running
-swamp -p appfire-sso --cache-clear
+swamp -p my-team-sso --cache-clear
 ```
 
 ## Troubleshooting
