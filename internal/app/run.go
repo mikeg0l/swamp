@@ -6,6 +6,19 @@ import (
 	"sort"
 )
 
+var (
+	selectAccountFn       = selectAccountWithFZF
+	discoverRoleTargetsFn = discoverRoleTargets
+	selectRoleTargetFn    = selectRoleTargetWithFZF
+	buildTempAWSConfigFn  = buildTemporaryAWSConfig
+	discoverRegionsFn     = discoverRegions
+	selectRegionFn        = selectRegionWithFZF
+	scanAllInstancesFn    = scanAllInstances
+	pickInstanceFn        = pickWithFZF
+	startSSMSessionFn     = startSSMSession
+	removeFileFn          = os.Remove
+)
+
 func Run(opts Options) error {
 	if err := validateOptions(opts); err != nil {
 		return err
@@ -48,7 +61,7 @@ func Run(opts Options) error {
 
 func runInteractiveScope(opts Options, cfg profileConfig, ssoRegion, accessToken string, accounts []ssoAccountsResponse) error {
 	for {
-		selectedAccount, err := selectAccountWithFZF(accounts)
+		selectedAccount, err := selectAccountFn(accounts)
 		if err != nil {
 			return fmt.Errorf("account selection failed: %w", err)
 		}
@@ -57,7 +70,7 @@ func runInteractiveScope(opts Options, cfg profileConfig, ssoRegion, accessToken
 			return nil
 		}
 
-		targets, err := discoverRoleTargets(opts, []ssoAccountsResponse{*selectedAccount}, ssoRegion, accessToken)
+		targets, err := discoverRoleTargetsFn(opts, []ssoAccountsResponse{*selectedAccount}, ssoRegion, accessToken)
 		if err != nil {
 			return err
 		}
@@ -66,7 +79,7 @@ func runInteractiveScope(opts Options, cfg profileConfig, ssoRegion, accessToken
 		}
 
 		for {
-			selectedTarget, backToAccounts, err := selectRoleTargetWithFZF(targets)
+			selectedTarget, backToAccounts, err := selectRoleTargetFn(targets)
 			if err != nil {
 				return fmt.Errorf("role selection failed: %w", err)
 			}
@@ -79,27 +92,27 @@ func runInteractiveScope(opts Options, cfg profileConfig, ssoRegion, accessToken
 			}
 
 			selectedTargets := []roleTarget{*selectedTarget}
-			tmpConfigPath, profileNames, err := buildTemporaryAWSConfig(cfg, selectedTargets)
+			tmpConfigPath, profileNames, err := buildTempAWSConfigFn(cfg, selectedTargets)
 			if err != nil {
 				return fmt.Errorf("failed to build temporary AWS config: %w", err)
 			}
 
-			regions, err := discoverRegions(opts, cfg, selectedTargets, tmpConfigPath, profileNames, ssoRegion)
+			regions, err := discoverRegionsFn(opts, cfg, selectedTargets, tmpConfigPath, profileNames, ssoRegion)
 			if err != nil {
-				_ = os.Remove(tmpConfigPath)
+				_ = removeFileFn(tmpConfigPath)
 				return err
 			}
 			if len(regions) == 0 {
-				_ = os.Remove(tmpConfigPath)
+				_ = removeFileFn(tmpConfigPath)
 				continue
 			}
 			fmt.Printf("Scanning %d regions\n", len(regions))
 
 			backToRoles := false
 			for {
-				selectedRegion, back, err := selectRegionWithFZF(regions)
+				selectedRegion, back, err := selectRegionFn(regions)
 				if err != nil {
-					_ = os.Remove(tmpConfigPath)
+					_ = removeFileFn(tmpConfigPath)
 					return fmt.Errorf("region selection failed: %w", err)
 				}
 				if back {
@@ -108,11 +121,11 @@ func runInteractiveScope(opts Options, cfg profileConfig, ssoRegion, accessToken
 				}
 				if selectedRegion == "" {
 					fmt.Println("No region selected.")
-					_ = os.Remove(tmpConfigPath)
+					_ = removeFileFn(tmpConfigPath)
 					return nil
 				}
 
-				candidates := scanAllInstances(opts, tmpConfigPath, selectedTargets, profileNames, []string{selectedRegion}, opts.Workers, !opts.IncludeStopped)
+				candidates := scanAllInstancesFn(opts, tmpConfigPath, selectedTargets, profileNames, []string{selectedRegion}, opts.Workers, !opts.IncludeStopped)
 				if len(candidates) == 0 {
 					fmt.Printf("No EC2 instances found in %s.\n", selectedRegion)
 					continue
@@ -121,9 +134,9 @@ func runInteractiveScope(opts Options, cfg profileConfig, ssoRegion, accessToken
 					return candidates[i].DisplayLine < candidates[j].DisplayLine
 				})
 
-				selected, backToRegions, err := pickWithFZF(candidates)
+				selected, backToRegions, err := pickInstanceFn(candidates)
 				if err != nil {
-					_ = os.Remove(tmpConfigPath)
+					_ = removeFileFn(tmpConfigPath)
 					return fmt.Errorf("selection failed: %w", err)
 				}
 				if backToRegions {
@@ -131,20 +144,20 @@ func runInteractiveScope(opts Options, cfg profileConfig, ssoRegion, accessToken
 				}
 				if selected == nil {
 					fmt.Println("No instance selected.")
-					_ = os.Remove(tmpConfigPath)
+					_ = removeFileFn(tmpConfigPath)
 					return nil
 				}
 
 				fmt.Printf("Starting SSM session to %s in %s (profile %s)\n", selected.InstanceID, selected.Region, selected.ProfileName)
-				if err := startSSMSession(tmpConfigPath, selected.ProfileName, selected.Region, selected.InstanceID); err != nil {
-					_ = os.Remove(tmpConfigPath)
+				if err := startSSMSessionFn(tmpConfigPath, selected.ProfileName, selected.Region, selected.InstanceID); err != nil {
+					_ = removeFileFn(tmpConfigPath)
 					return fmt.Errorf("ssm session failed: %w", err)
 				}
-				_ = os.Remove(tmpConfigPath)
+				_ = removeFileFn(tmpConfigPath)
 				return nil
 			}
 
-			_ = os.Remove(tmpConfigPath)
+			_ = removeFileFn(tmpConfigPath)
 			if backToRoles {
 				continue
 			}
