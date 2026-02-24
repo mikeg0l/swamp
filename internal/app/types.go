@@ -80,6 +80,7 @@ type Options struct {
 	RoleFromPreferred    bool
 	RegionsArg           string
 	AllRegions           bool
+	SkipRegionSelect     bool
 	IncludeStopped       bool
 	Resume               bool
 	Last                 bool

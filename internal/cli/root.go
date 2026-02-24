@@ -43,6 +43,7 @@ func newRootCmdWithVersion(version string) *cobra.Command {
 				"role":                   cmd.Flags().Changed("role"),
 				"regions":                cmd.Flags().Changed("regions"),
 				"all-regions":            cmd.Flags().Changed("all-regions"),
+				"skip-region-select":     cmd.Flags().Changed("skip-region-select"),
 				"include-stopped":        cmd.Flags().Changed("include-stopped"),
 				"cache":                  cmd.Flags().Changed("cache"),
 				"cache-dir":              cmd.Flags().Changed("cache-dir"),
@@ -69,6 +70,7 @@ func newRootCmdWithVersion(version string) *cobra.Command {
 	cmd.Flags().StringVarP(&opts.RoleFilter, "role", "r", "", "Filter to a specific role name")
 	cmd.Flags().StringVarP(&opts.RegionsArg, "regions", "R", "", "Comma-separated regions to scan (default: discover all enabled regions)")
 	cmd.Flags().BoolVarP(&opts.AllRegions, "all-regions", "A", false, "Include all regions, even those not enabled in the account")
+	cmd.Flags().BoolVar(&opts.SkipRegionSelect, "skip-region-select", false, "Skip region picker and show instances from all discovered regions")
 	cmd.Flags().BoolVarP(&opts.IncludeStopped, "include-stopped", "s", false, "Include non-running instances in selection")
 	cmd.Flags().BoolVarP(&opts.Resume, "resume", "u", false, "Resume with the last successful account/role/region scope")
 	cmd.Flags().BoolVarP(&opts.Last, "last", "l", false, "Reconnect directly to the last successful instance")

@@ -82,6 +82,7 @@ swamp -p YOUR_SSO_PROFILE [flags]
 - `-r, --role string` Exact role name filter
 - `-R, --regions string` Comma-separated regions (e.g. `us-east-1,eu-west-1`)
 - `-A, --all-regions` Include all regions (including disabled ones)
+- `--skip-region-select` Skip region picker and show instances across all discovered regions
 - `-s, --include-stopped` Include non-running instances in EC2 selection
 - `-u, --resume` Reuse the last successful account/role/region scope
 - `-l, --last` Reconnect directly to the last successful instance
@@ -114,6 +115,8 @@ Flow:
 5. SSM session starts
 
 At role/region/instance steps you can pick `< Back` to move up one level.
+
+Use `--skip-region-select` to skip step 3 and pick from instances across all discovered regions.
 
 ### 2) Fast filtered run (account + role)
 
@@ -212,6 +215,7 @@ discovery:
 ux:
   auto_select_single: true
   resume_by_default: false
+  skip_region_select: false
 ```
 
 Precedence order:

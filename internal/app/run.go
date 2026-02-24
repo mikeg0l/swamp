@@ -190,33 +190,45 @@ func runInteractiveScope(opts Options, cfg profileConfig, ssoRegion, accessToken
 				continue
 			}
 			fmt.Printf("Scanning %d regions\n", len(regions))
+			if opts.SkipRegionSelect {
+				fmt.Println("Skipping region selection; showing instances from all discovered regions.")
+			}
 
 			backToRoles := false
 			for {
-				var selectedRegion string
-				var back bool
-				if !opts.NoAutoSelect && len(regions) == 1 {
-					selectedRegion = regions[0]
-					fmt.Printf("Auto-selected only available region: %s\n", selectedRegion)
-				} else {
-					selectedRegion, back, err = selectRegionFn(regions)
-				}
-				if err != nil {
-					_ = removeFileFn(tmpConfigPath)
-					return fmt.Errorf("region selection failed: %w", err)
-				}
-				if back {
-					backToRoles = true
-					break
-				}
-				if selectedRegion == "" {
-					fmt.Println("No region selected.")
-					_ = removeFileFn(tmpConfigPath)
-					return nil
+				regionsToScan := regions
+				selectedRegion := ""
+				if !opts.SkipRegionSelect {
+					var back bool
+					if !opts.NoAutoSelect && len(regions) == 1 {
+						selectedRegion = regions[0]
+						fmt.Printf("Auto-selected only available region: %s\n", selectedRegion)
+					} else {
+						selectedRegion, back, err = selectRegionFn(regions)
+					}
+					if err != nil {
+						_ = removeFileFn(tmpConfigPath)
+						return fmt.Errorf("region selection failed: %w", err)
+					}
+					if back {
+						backToRoles = true
+						break
+					}
+					if selectedRegion == "" {
+						fmt.Println("No region selected.")
+						_ = removeFileFn(tmpConfigPath)
+						return nil
+					}
+					regionsToScan = []string{selectedRegion}
 				}
 
-				candidates := scanAllInstancesFn(opts, tmpConfigPath, selectedTargets, profileNames, []string{selectedRegion}, opts.Workers, !opts.IncludeStopped)
+				candidates := scanAllInstancesFn(opts, tmpConfigPath, selectedTargets, profileNames, regionsToScan, opts.Workers, !opts.IncludeStopped)
 				if len(candidates) == 0 {
+					if opts.SkipRegionSelect {
+						fmt.Println("No EC2 instances found across discovered regions.")
+						backToRoles = true
+						break
+					}
 					fmt.Printf("No EC2 instances found in %s.\n", selectedRegion)
 					continue
 				}
@@ -237,6 +249,10 @@ func runInteractiveScope(opts Options, cfg profileConfig, ssoRegion, accessToken
 					return fmt.Errorf("selection failed: %w", err)
 				}
 				if backToRegions {
+					if opts.SkipRegionSelect {
+						backToRoles = true
+						break
+					}
 					continue
 				}
 				if selected == nil {

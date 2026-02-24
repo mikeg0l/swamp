@@ -65,6 +65,31 @@ func TestMergeOptionsPrecedenceFlagsOverConfig(t *testing.T) {
 	}
 }
 
+func TestMergeOptionsSkipRegionSelectFromConfig(t *testing.T) {
+	cli := Options{
+		Workers: 1,
+		FlagSet: map[string]bool{
+			"skip-region-select": false,
+		},
+	}
+	cfg := UserConfig{
+		UX: userConfigUX{
+			SkipRegionSelect: boolPtr(true),
+		},
+	}
+
+	got, err := mergeOptions(cli, cfg)
+	if err != nil {
+		t.Fatalf("mergeOptions failed: %v", err)
+	}
+	if !got.SkipRegionSelect {
+		t.Fatal("expected SkipRegionSelect to be set from config")
+	}
+	if src := got.ValueSource["skip-region-select"]; src != "config(ux.skip_region_select)" {
+		t.Fatalf("unexpected source for skip-region-select: %q", src)
+	}
+}
+
 func TestResolveConfigPathDefault(t *testing.T) {
 	got := resolveConfigPath("")
 	if !strings.Contains(got, ".config/swamp/config.yaml") {
@@ -116,5 +141,9 @@ func TestEnsureDefaultConfigFileCreatesOnce(t *testing.T) {
 }
 
 func intPtr(v int) *int {
+	return &v
+}
+
+func boolPtr(v bool) *bool {
 	return &v
 }

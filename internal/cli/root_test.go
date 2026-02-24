@@ -28,3 +28,14 @@ func TestRootCommandNewShortFlags(t *testing.T) {
 		t.Fatalf("expected -u shorthand for --resume")
 	}
 }
+
+func TestRootCommandSkipRegionSelectFlagExists(t *testing.T) {
+	cmd := newRootCmd()
+	flag := cmd.Flags().Lookup("skip-region-select")
+	if flag == nil {
+		t.Fatal("expected --skip-region-select flag to exist")
+	}
+	if flag.DefValue != "false" {
+		t.Fatalf("expected default false, got %s", flag.DefValue)
+	}
+}

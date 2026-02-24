@@ -42,6 +42,7 @@ type userConfigDisc struct {
 type userConfigUX struct {
 	AutoSelectSingle *bool `yaml:"auto_select_single"`
 	ResumeByDefault  *bool `yaml:"resume_by_default"`
+	SkipRegionSelect *bool `yaml:"skip_region_select"`
 }
 
 func resolveConfigPath(cliPath string) string {
@@ -108,6 +109,7 @@ func mergeOptions(cli Options, cfg UserConfig) (Options, error) {
 		"role":                "built-in",
 		"regions":             "built-in",
 		"all-regions":         "built-in",
+		"skip-region-select":  "built-in",
 		"include-stopped":     "built-in",
 		"cache":               "built-in",
 		"cache-dir":           "built-in",
@@ -150,6 +152,10 @@ func mergeOptions(cli Options, cfg UserConfig) (Options, error) {
 	if setFromConfig("all-regions") && cfg.Discovery.AllRegions != nil {
 		out.AllRegions = *cfg.Discovery.AllRegions
 		sources["all-regions"] = "config"
+	}
+	if setFromConfig("skip-region-select") && cfg.UX.SkipRegionSelect != nil {
+		out.SkipRegionSelect = *cfg.UX.SkipRegionSelect
+		sources["skip-region-select"] = "config(ux.skip_region_select)"
 	}
 	if setFromConfig("include-stopped") && cfg.Discovery.IncludeStopped != nil {
 		out.IncludeStopped = *cfg.Discovery.IncludeStopped
@@ -216,6 +222,7 @@ func mergeOptions(cli Options, cfg UserConfig) (Options, error) {
 	setFromFlag("role", "role")
 	setFromFlag("regions", "regions")
 	setFromFlag("all-regions", "all-regions")
+	setFromFlag("skip-region-select", "skip-region-select")
 	setFromFlag("include-stopped", "include-stopped")
 	setFromFlag("cache", "cache")
 	setFromFlag("cache-dir", "cache-dir")
@@ -238,6 +245,7 @@ func printEffectiveConfig(opts Options) {
 	fmt.Printf("workers: %d\n", opts.Workers)
 	fmt.Printf("regions: %s\n", opts.RegionsArg)
 	fmt.Printf("all_regions: %t\n", opts.AllRegions)
+	fmt.Printf("skip_region_select: %t\n", opts.SkipRegionSelect)
 	fmt.Printf("include_stopped: %t\n", opts.IncludeStopped)
 	fmt.Printf("resume: %t\n", opts.Resume)
 	fmt.Printf("last: %t\n", opts.Last)
@@ -281,6 +289,7 @@ discovery:
 ux:
   auto_select_single: true
   resume_by_default: false
+  skip_region_select: false
 `, strconv.Quote(profile), strconv.Quote(preferredRole), strconv.Quote(defaultCacheDir()))
 }
 
@@ -337,6 +346,7 @@ func warnUnknownConfigKeys(root map[string]any) {
 	knownUX := map[string]struct{}{
 		"auto_select_single": {},
 		"resume_by_default":  {},
+		"skip_region_select": {},
 	}
 
 	for k, v := range root {

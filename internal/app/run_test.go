@@ -384,3 +384,69 @@ func TestRunInteractiveScopeNoInstancesLoopsToRegionSelection(t *testing.T) {
 		t.Fatalf("expected one temp config cleanup, got %d", removeCalls)
 	}
 }
+
+func TestRunInteractiveScopeSkipRegionSelectScansAllRegions(t *testing.T) {
+	installRunTestSeams(t)
+
+	account := testAccount("111111111111", "acct")
+	target := roleTarget{AccountID: "111111111111", AccountName: "acct", RoleName: "Admin"}
+	mockConfigPath := "/tmp/mock-config.ini"
+	profileNames := map[string]string{targetKey(target): "swamp-1"}
+	selected := instanceCandidate{DisplayLine: "line-1", ProfileName: "swamp-1", Region: "us-west-2", InstanceID: "i-xyz"}
+
+	selectAccountFn = func(accounts []ssoAccountsResponse) (*ssoAccountsResponse, error) {
+		return &account, nil
+	}
+	discoverRoleTargetsFn = func(opts Options, accounts []ssoAccountsResponse, ssoRegion, accessToken string) ([]roleTarget, error) {
+		return []roleTarget{target}, nil
+	}
+	selectRoleTargetFn = func(targets []roleTarget) (*roleTarget, bool, error) {
+		return &target, false, nil
+	}
+	buildTempAWSConfigFn = func(base profileConfig, targets []roleTarget) (string, map[string]string, error) {
+		return mockConfigPath, profileNames, nil
+	}
+	discoverRegionsFn = func(opts Options, cfg profileConfig, targets []roleTarget, tmpConfigPath string, profileNames map[string]string, ssoRegion string) ([]string, error) {
+		return []string{"us-east-1", "us-west-2"}, nil
+	}
+	regionPickerCalls := 0
+	selectRegionFn = func(regions []string) (string, bool, error) {
+		regionPickerCalls++
+		return "", false, nil
+	}
+	var scannedRegions []string
+	scanAllInstancesFn = func(opts Options, tmpConfigPath string, targets []roleTarget, profileNames map[string]string, regions []string, workers int, runningOnly bool) []instanceCandidate {
+		scannedRegions = append([]string{}, regions...)
+		return []instanceCandidate{selected}
+	}
+	pickInstanceFn = func(candidates []instanceCandidate) (*instanceCandidate, bool, error) {
+		return &selected, false, nil
+	}
+	startCalls := 0
+	startSSMSessionFn = func(tmpConfigPath, profile, region, instanceID string) error {
+		startCalls++
+		return nil
+	}
+	removeCalls := 0
+	removeFileFn = func(path string) error {
+		removeCalls++
+		return nil
+	}
+
+	err := runInteractiveScope(Options{Workers: 1, NoAutoSelect: true, SkipRegionSelect: true}, profileConfig{}, "us-east-1", "token", []ssoAccountsResponse{account})
+	if err != nil {
+		t.Fatalf("runInteractiveScope returned error: %v", err)
+	}
+	if regionPickerCalls != 0 {
+		t.Fatalf("expected region picker to be skipped, got %d calls", regionPickerCalls)
+	}
+	if len(scannedRegions) != 2 || scannedRegions[0] != "us-east-1" || scannedRegions[1] != "us-west-2" {
+		t.Fatalf("expected scan across all discovered regions, got %v", scannedRegions)
+	}
+	if startCalls != 1 {
+		t.Fatalf("expected one ssm start call, got %d", startCalls)
+	}
+	if removeCalls != 1 {
+		t.Fatalf("expected one temp config cleanup, got %d", removeCalls)
+	}
+}
