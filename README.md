@@ -23,20 +23,7 @@ This tool discovers accessible AWS accounts, roles, regions, and EC2 instances, 
 
 ## Install
 
-### Option 1: Run directly
-
-```bash
-go run ./cmd/swamp -p YOUR_SSO_PROFILE
-```
-
-### Option 2: Build a binary
-
-```bash
-go build -o swamp ./cmd/swamp
-./swamp -p YOUR_SSO_PROFILE
-```
-
-### Option 3: Homebrew tap
+### Option 1: Homebrew tap
 
 ```bash
 brew tap mikeg0l/tap
@@ -54,6 +41,19 @@ Upgrade:
 ```bash
 brew update
 brew upgrade swamp
+```
+
+### Option 2: Run directly
+
+```bash
+go run ./cmd/swamp -p YOUR_SSO_PROFILE
+```
+
+### Option 3: Build locally
+
+```bash
+go build -o swamp ./cmd/swamp
+./swamp -p YOUR_SSO_PROFILE
 ```
 
 ## Add to PATH
