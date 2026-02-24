@@ -63,6 +63,14 @@ swamp -p YOUR_SSO_PROFILE [flags]
 - `-R, --regions string` Comma-separated regions (e.g. `us-east-1,eu-west-1`)
 - `-A, --all-regions` Include all regions (including disabled ones)
 - `-s, --include-stopped` Include non-running instances in EC2 selection
+- `--cache` Enable/disable local discovery cache (default: `true`)
+- `--cache-dir string` Cache directory (default: OS user cache dir + `/swamp`)
+- `--cache-mode string` Cache behavior: `balanced`, `fresh`, or `speed` (default: `balanced`)
+- `--cache-clear` Remove cache contents before discovery
+- `--cache-ttl-accounts duration` TTL for accounts cache (default: `6h`)
+- `--cache-ttl-roles duration` TTL for roles cache (default: `6h`)
+- `--cache-ttl-regions duration` TTL for regions cache (default: `24h`)
+- `--cache-ttl-instances duration` TTL for instances cache (default: `60s`)
 
 ## Typical Workflows
 
@@ -96,6 +104,37 @@ swamp -p appfire-sso -R us-east-1,eu-west-1 -w 24
 - Lower scope first for speed: `--account`, `--role`, `--regions`
 - Start with `--workers 12`; raise to `16-32` if needed
 - Very high worker counts can trigger AWS throttling and reduce real performance
+- Leave cache on for repeated usage; this avoids repeating most SSO/account/role/region discovery calls
+
+## Caching
+
+Swamp caches discovery data on disk and reuses it across runs.
+
+- `balanced` (default): use fresh cache immediately; if stale cache exists, use it and refresh in background
+- `fresh`: bypass cache reads and always refresh from AWS (still writes cache)
+- `speed`: aggressively use available cache and refresh stale entries in background
+
+Default TTLs:
+- accounts: `6h`
+- roles: `6h`
+- regions: `24h`
+- instances: `60s`
+
+Examples:
+
+```bash
+# default balanced mode
+swamp -p appfire-sso
+
+# force fresh discovery this run
+swamp -p appfire-sso --cache-mode fresh
+
+# speed-first with longer instance TTL
+swamp -p appfire-sso --cache-mode speed --cache-ttl-instances 5m
+
+# clear cache before running
+swamp -p appfire-sso --cache-clear
+```
 
 ## Troubleshooting
 

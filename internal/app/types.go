@@ -1,5 +1,7 @@
 package app
 
+import "time"
+
 type ssoAccountsResponse struct {
 	AccountList []struct {
 		AccountID    string `json:"accountId"`
@@ -71,12 +73,21 @@ type scanResult struct {
 }
 
 type Options struct {
-	Profile          string
-	Workers          int
-	AccountFilter    string
-	RoleFilter       string
-	RegionsArg       string
-	AllRegions       bool
-	InteractiveScope bool
-	IncludeStopped   bool
+	Profile           string
+	Workers           int
+	AccountFilter     string
+	RoleFilter        string
+	RegionsArg        string
+	AllRegions        bool
+	InteractiveScope  bool
+	IncludeStopped    bool
+	CacheEnabled      bool
+	CacheDir          string
+	CacheTTLAccounts  time.Duration
+	CacheTTLRoles     time.Duration
+	CacheTTLRegions   time.Duration
+	CacheTTLInstances time.Duration
+	CacheMode         string
+	CacheClear        bool
+	cacheStore        *cacheStore
 }

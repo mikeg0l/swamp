@@ -15,7 +15,7 @@ func resolveSSORegion(cfg profileConfig) string {
 
 func discoverAccounts(opts Options, ssoRegion, accessToken string) ([]ssoAccountsResponse, error) {
 	fmt.Println("Discovering accessible AWS accounts...")
-	accounts, err := listSSOAccounts(opts.Profile, ssoRegion, accessToken)
+	accounts, err := listSSOAccountsCached(opts, ssoRegion, accessToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list SSO accounts: %w", err)
 	}
@@ -50,7 +50,7 @@ func discoverRoleTargets(opts Options, accounts []ssoAccountsResponse, ssoRegion
 	}
 
 	fmt.Println("Discovering viable SSO roles in each account...")
-	targets, err := buildRoleTargets(opts.Profile, ssoRegion, accessToken, accounts, opts.Workers)
+	targets, err := buildRoleTargets(opts, ssoRegion, accessToken, accounts, opts.Workers)
 	if err != nil {
 		return nil, fmt.Errorf("failed while listing account roles: %w", err)
 	}
@@ -97,7 +97,7 @@ func discoverRegions(opts Options, cfg profileConfig, targets []roleTarget, tmpC
 		return nil, fmt.Errorf("failed to map discovery profile for target %s/%s", targets[0].AccountID, targets[0].RoleName)
 	}
 
-	regions, err := resolveRegions(tmpConfigPath, discoveryProfile, discoveryRegion, opts.RegionsArg, opts.AllRegions)
+	regions, err := resolveRegionsCached(opts, tmpConfigPath, discoveryProfile, discoveryRegion, opts.RegionsArg, opts.AllRegions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve regions: %w", err)
 	}

@@ -11,6 +11,12 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
+)
+
+var (
+	resolveRegionsFetcher = resolveRegions
+	queryInstancesFetcher = queryInstances
 )
 
 func resolveRegions(tmpConfigPath, profile, discoveryRegion, regionsArg string, includeAllRegions bool) ([]string, error) {
@@ -54,6 +60,40 @@ func resolveRegions(tmpConfigPath, profile, discoveryRegion, regionsArg string, 
 	}
 	sort.Strings(regions)
 	return regions, nil
+}
+
+func resolveRegionsCached(opts Options, tmpConfigPath, discoveryProfile, discoveryRegion, regionsArg string, includeAllRegions bool) ([]string, error) {
+	key := cacheKeyRegions(opts.Profile, discoveryProfile, discoveryRegion, includeAllRegions)
+	var cached []string
+	if opts.cacheStore != nil && strings.TrimSpace(regionsArg) == "" {
+		status, age, err := opts.cacheStore.readJSON(opts.Profile, key, &cached)
+		if err == nil {
+			if status == cacheHitFresh {
+				fmt.Printf("Using cached regions (age=%s)\n", age.Round(time.Second))
+				return cached, nil
+			}
+			if status == cacheHitStale && opts.cacheStore.shouldUseStale() {
+				fmt.Printf("Using cached regions (stale, age=%s), refreshing...\n", age.Round(time.Second))
+				opts.cacheStore.refreshAsync(func() error {
+					fresh, fetchErr := resolveRegionsFetcher(tmpConfigPath, discoveryProfile, discoveryRegion, regionsArg, includeAllRegions)
+					if fetchErr != nil {
+						return fetchErr
+					}
+					return opts.cacheStore.writeJSON(opts.Profile, key, opts.CacheTTLRegions, fresh)
+				})
+				return cached, nil
+			}
+		}
+	}
+
+	fresh, err := resolveRegionsFetcher(tmpConfigPath, discoveryProfile, discoveryRegion, regionsArg, includeAllRegions)
+	if err != nil {
+		return nil, err
+	}
+	if opts.cacheStore != nil && strings.TrimSpace(regionsArg) == "" {
+		_ = opts.cacheStore.writeJSON(opts.Profile, key, opts.CacheTTLRegions, fresh)
+	}
+	return fresh, nil
 }
 
 func buildTemporaryAWSConfig(base profileConfig, targets []roleTarget) (string, map[string]string, error) {
@@ -106,7 +146,7 @@ func buildTemporaryAWSConfig(base profileConfig, targets []roleTarget) (string, 
 	return f.Name(), profileNames, nil
 }
 
-func scanAllInstances(tmpConfigPath string, targets []roleTarget, profileNames map[string]string, regions []string, workers int, runningOnly bool) []instanceCandidate {
+func scanAllInstances(opts Options, tmpConfigPath string, targets []roleTarget, profileNames map[string]string, regions []string, workers int, runningOnly bool) []instanceCandidate {
 	type job struct {
 		target  roleTarget
 		profile string
@@ -122,7 +162,7 @@ func scanAllInstances(tmpConfigPath string, targets []roleTarget, profileNames m
 		go func() {
 			defer wg.Done()
 			for j := range jobs {
-				cands, _ := queryInstances(tmpConfigPath, j.target, j.profile, j.region, runningOnly)
+				cands, _ := queryInstancesCached(opts, tmpConfigPath, j.target, j.profile, j.region, runningOnly)
 				if len(cands) > 0 {
 					results <- scanResult{Candidates: cands}
 				}
@@ -207,6 +247,39 @@ func queryInstances(tmpConfigPath string, target roleTarget, profileName, region
 		}
 	}
 	return candidates, nil
+}
+
+func queryInstancesCached(opts Options, tmpConfigPath string, target roleTarget, profileName, region string, runningOnly bool) ([]instanceCandidate, error) {
+	key := cacheKeyInstances(opts.Profile, target.AccountID, target.RoleName, region, runningOnly)
+	var cached []instanceCandidate
+	if opts.cacheStore != nil {
+		status, age, err := opts.cacheStore.readJSON(opts.Profile, key, &cached)
+		if err == nil {
+			if status == cacheHitFresh {
+				return cached, nil
+			}
+			if status == cacheHitStale && opts.cacheStore.shouldUseStale() {
+				fmt.Printf("Using cached instances for %s/%s/%s (stale, age=%s), refreshing...\n", target.AccountID, target.RoleName, region, age.Round(time.Second))
+				opts.cacheStore.refreshAsync(func() error {
+					fresh, fetchErr := queryInstancesFetcher(tmpConfigPath, target, profileName, region, runningOnly)
+					if fetchErr != nil {
+						return fetchErr
+					}
+					return opts.cacheStore.writeJSON(opts.Profile, key, opts.CacheTTLInstances, fresh)
+				})
+				return cached, nil
+			}
+		}
+	}
+
+	fresh, err := queryInstancesFetcher(tmpConfigPath, target, profileName, region, runningOnly)
+	if err != nil {
+		return nil, err
+	}
+	if opts.cacheStore != nil {
+		_ = opts.cacheStore.writeJSON(opts.Profile, key, opts.CacheTTLInstances, fresh)
+	}
+	return fresh, nil
 }
 
 func startSSMSession(tmpConfigPath, profile, region, instanceID string) error {

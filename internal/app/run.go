@@ -14,6 +14,13 @@ func Run(opts Options) error {
 	if err := validateDependencies(); err != nil {
 		return err
 	}
+	opts.cacheStore = newCacheStore(opts)
+	if opts.CacheClear {
+		if err := opts.cacheStore.clear(); err != nil {
+			return fmt.Errorf("failed to clear cache: %w", err)
+		}
+		fmt.Printf("Cleared cache at %s\n", opts.CacheDir)
+	}
 
 	cfg, err := readProfileConfig(opts.Profile)
 	if err != nil {
@@ -62,7 +69,7 @@ func Run(opts Options) error {
 	}
 	fmt.Printf("Scanning %d regions\n", len(regions))
 
-	candidates := scanAllInstances(tmpConfigPath, targets, profileNames, regions, opts.Workers, !opts.IncludeStopped)
+	candidates := scanAllInstances(opts, tmpConfigPath, targets, profileNames, regions, opts.Workers, !opts.IncludeStopped)
 	if len(candidates) == 0 {
 		return errors.New("no EC2 instances found for the discovered account/role/region scope")
 	}

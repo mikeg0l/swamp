@@ -12,6 +12,11 @@ import (
 	"time"
 )
 
+var (
+	listSSOAccountsFetcher   = listSSOAccounts
+	fetchRolesForAcctFetcher = fetchRolesForAccount
+)
+
 func ensureSSOLoginAndGetToken(profile, preferredStartURL string) (string, error) {
 	// Fast path: if an unexpired token already exists, skip login.
 	if tok, err := loadSSOAccessToken(preferredStartURL); err == nil {
@@ -60,7 +65,41 @@ func listSSOAccounts(profile, ssoRegion, accessToken string) ([]ssoAccountsRespo
 	return outAccounts, nil
 }
 
-func buildRoleTargets(profile, ssoRegion, accessToken string, accounts []ssoAccountsResponse, workers int) ([]roleTarget, error) {
+func listSSOAccountsCached(opts Options, ssoRegion, accessToken string) ([]ssoAccountsResponse, error) {
+	key := cacheKeyAccounts(opts.Profile, ssoRegion)
+	var cached []ssoAccountsResponse
+	if opts.cacheStore != nil {
+		status, age, err := opts.cacheStore.readJSON(opts.Profile, key, &cached)
+		if err == nil {
+			if status == cacheHitFresh {
+				fmt.Printf("Using cached accounts (age=%s)\n", age.Round(time.Second))
+				return cached, nil
+			}
+			if status == cacheHitStale && opts.cacheStore.shouldUseStale() {
+				fmt.Printf("Using cached accounts (stale, age=%s), refreshing...\n", age.Round(time.Second))
+				opts.cacheStore.refreshAsync(func() error {
+					fresh, fetchErr := listSSOAccountsFetcher(opts.Profile, ssoRegion, accessToken)
+					if fetchErr != nil {
+						return fetchErr
+					}
+					return opts.cacheStore.writeJSON(opts.Profile, key, opts.CacheTTLAccounts, fresh)
+				})
+				return cached, nil
+			}
+		}
+	}
+
+	fresh, err := listSSOAccountsFetcher(opts.Profile, ssoRegion, accessToken)
+	if err != nil {
+		return nil, err
+	}
+	if opts.cacheStore != nil {
+		_ = opts.cacheStore.writeJSON(opts.Profile, key, opts.CacheTTLAccounts, fresh)
+	}
+	return fresh, nil
+}
+
+func buildRoleTargets(opts Options, ssoRegion, accessToken string, accounts []ssoAccountsResponse, workers int) ([]roleTarget, error) {
 	type acctJob struct {
 		AccountID   string
 		AccountName string
@@ -79,37 +118,10 @@ func buildRoleTargets(profile, ssoRegion, accessToken string, accounts []ssoAcco
 		go func() {
 			defer wg.Done()
 			for j := range jobs {
-				rolesOut, err := runAWSJSON("", profile, []string{
-					"sso", "list-account-roles",
-					"--region", ssoRegion,
-					"--access-token", accessToken,
-					"--account-id", j.AccountID,
-				})
+				out, err := listRolesForAccountCached(opts, ssoRegion, accessToken, j.AccountID, j.AccountName)
 				if err != nil {
-					results <- acctResult{
-						Err: fmt.Errorf("account %s (%s): %w", j.AccountID, j.AccountName, err),
-					}
+					results <- acctResult{Err: err}
 					continue
-				}
-
-				var rolesResp ssoRolesResponse
-				if err := json.Unmarshal(rolesOut, &rolesResp); err != nil {
-					results <- acctResult{
-						Err: fmt.Errorf("decode list-account-roles for account %s: %w", j.AccountID, err),
-					}
-					continue
-				}
-
-				var out []roleTarget
-				for _, r := range rolesResp.RoleList {
-					if strings.TrimSpace(r.RoleName) == "" {
-						continue
-					}
-					out = append(out, roleTarget{
-						AccountID:   j.AccountID,
-						AccountName: j.AccountName,
-						RoleName:    r.RoleName,
-					})
 				}
 				results <- acctResult{Targets: out}
 			}
@@ -147,6 +159,69 @@ func buildRoleTargets(profile, ssoRegion, accessToken string, accounts []ssoAcco
 		return nil, firstErr
 	}
 	return targets, nil
+}
+
+func listRolesForAccountCached(opts Options, ssoRegion, accessToken, accountID, accountName string) ([]roleTarget, error) {
+	key := cacheKeyRoles(opts.Profile, ssoRegion, accountID)
+	var cached []roleTarget
+	if opts.cacheStore != nil {
+		status, age, err := opts.cacheStore.readJSON(opts.Profile, key, &cached)
+		if err == nil {
+			if status == cacheHitFresh {
+				return cached, nil
+			}
+			if status == cacheHitStale && opts.cacheStore.shouldUseStale() {
+				fmt.Printf("Using cached roles for account %s (stale, age=%s), refreshing...\n", accountID, age.Round(time.Second))
+				opts.cacheStore.refreshAsync(func() error {
+					fresh, fetchErr := fetchRolesForAcctFetcher(opts.Profile, ssoRegion, accessToken, accountID, accountName)
+					if fetchErr != nil {
+						return fetchErr
+					}
+					return opts.cacheStore.writeJSON(opts.Profile, key, opts.CacheTTLRoles, fresh)
+				})
+				return cached, nil
+			}
+		}
+	}
+
+	fresh, err := fetchRolesForAcctFetcher(opts.Profile, ssoRegion, accessToken, accountID, accountName)
+	if err != nil {
+		return nil, err
+	}
+	if opts.cacheStore != nil {
+		_ = opts.cacheStore.writeJSON(opts.Profile, key, opts.CacheTTLRoles, fresh)
+	}
+	return fresh, nil
+}
+
+func fetchRolesForAccount(profile, ssoRegion, accessToken, accountID, accountName string) ([]roleTarget, error) {
+	rolesOut, err := runAWSJSON("", profile, []string{
+		"sso", "list-account-roles",
+		"--region", ssoRegion,
+		"--access-token", accessToken,
+		"--account-id", accountID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("account %s (%s): %w", accountID, accountName, err)
+	}
+
+	var rolesResp ssoRolesResponse
+	if err := json.Unmarshal(rolesOut, &rolesResp); err != nil {
+		return nil, fmt.Errorf("decode list-account-roles for account %s: %w", accountID, err)
+	}
+
+	var out []roleTarget
+	for _, r := range rolesResp.RoleList {
+		if strings.TrimSpace(r.RoleName) == "" {
+			continue
+		}
+		out = append(out, roleTarget{
+			AccountID:   accountID,
+			AccountName: accountName,
+			RoleName:    r.RoleName,
+		})
+	}
+	return out, nil
 }
 
 func loadSSOAccessToken(preferredStartURL string) (string, error) {
